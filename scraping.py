@@ -9,6 +9,27 @@ from webdriver_manager.chrome import ChromeDriverManager
 executable_path = {'executable_path': ChromeDriverManager().install()}
 browser = Browser('chrome', **executable_path, headless=False)
 
+def scrape_all():
+    # Initiate headless driver for deployment
+    executable_path = {'executable_path': ChromeDriverManager().install()}
+    browser = Browser('chrome', **executable_path, headless=True)
+
+    news_title, news_paragraph = mars_news(browser)
+
+    # Run all scraping functions and store results in dictionary
+    data = {
+        "news_title": news_title,
+        "news_paragraph": news_paragraph,
+        "featured_image": featured_image(browser),
+        "facts": mars_facts(),
+        "last_modified": dt.datetime.now(),
+        "hemispheres": hemispheres(browser)
+    }
+
+       # Stop webdriver and return data
+    browser.quit()
+    return data
+
 def mars_news(browser):
     # Visit the Mars news site
     url = 'https://redplanetscience.com/'
@@ -88,25 +109,38 @@ def mars_facts():
     # Convert dataframe into HTML format, add bootstrap
     return df.to_html()
 
-def scrape_all():
-    # Initiate headless driver for deployment
-    executable_path = {'executable_path': ChromeDriverManager().install()}
-    browser = Browser('chrome', **executable_path, headless=True)
+def hemispheres():
+    url = 'https://astrogeology.usgs.gov/search/results?q=hemisphere+enhanced&k1=target&v1=Mars'
+    browser.visit(url)
 
-    news_title, news_paragraph = mars_news(browser)
+    hemisphere_image_urls = []
 
-    # Run all scraping functions and store results in dictionary
-    data = {
-        "news_title": news_title,
-        "news_paragraph": news_paragraph,
-        "featured_image": featured_image(browser),
-        "facts": mars_facts(),
-        "last_modified": dt.datetime.now()
-    }
+    # Code to retrieve the image urls and titles for each hemisphere.
+    for img in range(0,4):
+        
+        hemispheres = {}
+        
+        # click the link to where the image links are located
+        full_image_element = browser.find_by_tag('h3')[img]
+        full_image_element.click()
+        
+        # get the full resolution image url
+        # https://splinter.readthedocs.io/en/latest/finding.html is very helpful!
+        img_link = browser.links.find_by_text('Sample').first
+        img_url = img_link['href']
+        
+        # get the title for that image
+        html = browser.html
+        image_soup = soup(html, 'html.parser')
+        title = image_soup.find('h2', class_='title').get_text()
+        
+        # add both to dictionary
+        hemispheres["img_url"] = img_url
+        hemispheres["title"] = title
+        hemisphere_image_urls.append(hemispheres)
+        browser.back()
 
-       # Stop webdriver and return data
-    browser.quit()
-    return data
+    return hemisphere_image_urls
 
 if __name__ == "__main__":
     # If running as script, print scraped data
